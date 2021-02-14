@@ -16,4 +16,5 @@
 
 ###> dev/ide ###
 .idea/
+.DS_Store
 ###< dev/ide ###
