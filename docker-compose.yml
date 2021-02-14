@@ -1,0 +1,102 @@
+version: '3'
+
+services:
+
+  symfony: &symfony-template
+    build:
+      context: .
+      args:
+        - "BUILD_ARGUMENT_ENV=dev"
+        - "BUILD_ARGUMENT_DEBUG_ENABLED=false"
+        - "SSL_DOMAIN_NAME=$SSL_DOMAIN_NAME"
+        - "SYMFONY_VERSION=$SYMFONY_VERSION"
+      dockerfile: ./Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME}_symfony
+    expose:
+      - 80
+      - 443
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - mysql
+      - rabbitmq
+    links:
+      - mysql
+      - rabbitmq
+
+  ### Cron tasks, RabbitMQ consumers
+  supervisord:
+    <<: *symfony-template
+    container_name: ${COMPOSE_PROJECT_NAME}_supervisord
+    expose: []
+    ports: []
+    command: ["/usr/bin/supervisord"]
+
+  mysql:
+    image: mysql:8.0
+    container_name: ${COMPOSE_PROJECT_NAME}_mysql
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=sf_project
+    ports:
+      - 33061:3306
+    volumes:
+      - ./var/mysql-data:/var/lib/mysql
+      - ./docker/dev/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: ${COMPOSE_PROJECT_NAME}_phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: root
+      PMA_PASSWORD: root
+    ports:
+      - "8080:80"
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    build:
+      context: ./docker/rabbitmq/
+      dockerfile: ./Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME}_rabbitmq
+    restart: always
+    environment:
+      - RABBITMQ_ERLANG_COOKIE=7ead507151fc4461b9f45c1161384a04
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+      - RABBITMQ_DEFAULT_VHOST=/
+    ports:
+      - 15672:15672
+    volumes:
+      - ./var/rabbitmq:/var/lib/rabbitmq
+
+  # https://codingfundas.com/setting-up-elasticsearch-6-8-with-kibana-and-x-pack-security-enabled/index.html
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2-amd64
+    container_name: ${COMPOSE_PROJECT_NAME}_elasticsearch
+    restart: always
+    env_file:
+      - ./docker/elasticsearch/elasticsearch.env
+    volumes:
+      - ./var/elasticsearch:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+
+  # "If you run Docker locally, we recommend allowing Docker to use at least 4 GB of RAM in Preferences > Advanced."
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.9.2
+    container_name: ${COMPOSE_PROJECT_NAME}_kibana
+    restart: always
+    env_file:
+      - ./docker/kibana/kibana.env
+    depends_on:
+      - elasticsearch
+    ports:
+      - 5601:5601
