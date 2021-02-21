@@ -79,9 +79,12 @@ services:
 
   # https://codingfundas.com/setting-up-elasticsearch-6-8-with-kibana-and-x-pack-security-enabled/index.html
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2-amd64
+    #  image: docker.elastic.co/elasticsearch/elasticsearch:7.9.2-amd64
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.8.13
     container_name: ${COMPOSE_PROJECT_NAME}_elasticsearch
     restart: always
+    environment:
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     env_file:
       - ./docker/elasticsearch/elasticsearch.env
     volumes:
@@ -91,7 +94,8 @@ services:
 
   # "If you run Docker locally, we recommend allowing Docker to use at least 4 GB of RAM in Preferences > Advanced."
   kibana:
-    image: docker.elastic.co/kibana/kibana:7.9.2
+    #  image: docker.elastic.co/kibana/kibana:7.9.2
+    image: docker.elastic.co/kibana/kibana:6.8.13
     container_name: ${COMPOSE_PROJECT_NAME}_kibana
     restart: always
     env_file:
